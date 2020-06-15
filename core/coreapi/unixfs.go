@@ -3,7 +3,14 @@ package coreapi
 import (
 	"context"
 	"fmt"
+	"math/big"
+	"os"
 	"sync"
+
+	"github.com/ethereum/go-ethereum/accounts/abi/bind"
+	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/crypto"
+	"github.com/ethereum/go-ethereum/ethclient"
 
 	"github.com/ipfs/go-ipfs/core"
 
@@ -32,6 +39,28 @@ type UnixfsAPI CoreAPI
 
 var nilNode *core.IpfsNode
 var once sync.Once
+
+func getBlockchainInstance() (*AccessControlIPFS, *bind.TransactOpts, error) {
+	client, err := ethclient.Dial("https://goerli.infura.io/v3/c313f9648c3742528bae0c24717d45aa")
+	if err != nil {
+		return nil, nil, err
+	}
+	privateKey, err := crypto.HexToECDSA(os.Getenv("WALLET_PRIVATE_KEY"))  // private key - ethereum wallet
+	if err != nil {
+		return nil, nil, err
+	}
+	gasPrice, err := client.SuggestGasPrice(context.Background())
+	if err != nil {
+		return nil, nil, err
+	}
+	auth := bind.NewKeyedTransactor(privateKey)
+	auth.Value = big.NewInt(0)       // in wei
+	auth.GasLimit = uint64(300000) // in units
+	auth.GasPrice = gasPrice
+	address := common.HexToAddress("0x43242b174f617489977742F6c988636517907436") // already deployed contract address
+	instance, err := NewAccessControlIPFS(address, client)
+	return instance, auth, err
+}
 
 func getOrCreateNilNode() (*core.IpfsNode, error) {
 	once.Do(func() {
@@ -175,6 +204,33 @@ func (api *UnixfsAPI) Add(ctx context.Context, files files.Node, opts ...options
 		}
 	}
 
+	instance, auth, err := getBlockchainInstance()
+	if (err != nil) {
+		return nil, err
+	}
+
+	root := path.IpfsPath(nd.Cid()).Root().String()
+
+	block_1 := [32]byte{}
+	block_2 := [32]byte{}
+	copy(block_1[:], []byte(root[:32]))
+	copy(block_2[:], []byte(root[32:]))
+
+	transaction, err := instance.AddBlockMultiple(
+		auth,
+		common.HexToAddress("0x253f9613A075598870A58571fa800187e1be8a93"),
+		[][32]byte{block_1, block_2},
+		[]common.Address{
+			common.HexToAddress("0x5e92be67190cb5B6c412D9566Ea51b06c31E4639"),
+			common.HexToAddress("0xf4d253f8F594c1FdA887af8E5973362d0B49bc44"),
+		},
+	)
+	if (err != nil) {
+		return nil, err
+	}
+	fmt.Println("Add Block Operation Successful.")
+	fmt.Println("Transaction ID: ", transaction.Hash().Hex())
+
 	return path.IpfsPath(nd.Cid()), nil
 }
 
@@ -183,6 +239,27 @@ func (api *UnixfsAPI) Get(ctx context.Context, p path.Path) (files.Node, error) 
 
 	nd, err := ses.ResolveNode(ctx, p)
 	if err != nil {
+		return nil, err
+	}
+
+	instance, _, err := getBlockchainInstance()
+	if (err != nil) {
+		return nil, err
+	}
+
+	root := path.IpfsPath(nd.Cid()).Root().String()
+
+	block_1 := [32]byte{}
+	block_2 := [32]byte{}
+	copy(block_1[:], []byte(root[:32]))
+	copy(block_2[:], []byte(root[32:]))
+
+	access, err := instance.CheckAccessMultiple(
+		&bind.CallOpts{},
+		common.HexToAddress("0xf225e7BEAe7c29582B99b330FEff1C68dcb35DC1"),
+		[][32]byte{block_1, block_2},
+	)
+	if ((err != nil) || (access[0] != true) || (access[1] != true)) {
 		return nil, err
 	}
 
