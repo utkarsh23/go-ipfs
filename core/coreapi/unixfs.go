@@ -218,11 +218,11 @@ func (api *UnixfsAPI) Add(ctx context.Context, files files.Node, opts ...options
 
 	transaction, err := instance.AddBlockMultiple(
 		auth,
-		common.HexToAddress("0x253f9613A075598870A58571fa800187e1be8a93"),
+		common.HexToAddress("0xde707cff8B044d44501c17164DAe4Dd3b83E93f6"),
 		[][32]byte{block_1, block_2},
 		[]common.Address{
-			common.HexToAddress("0x5e92be67190cb5B6c412D9566Ea51b06c31E4639"),
-			common.HexToAddress("0xf4d253f8F594c1FdA887af8E5973362d0B49bc44"),
+			common.HexToAddress("0x6a8322B08c1926f3cDC988CF9550c11C4c2bCF35"),
+			common.HexToAddress("0xeEf447271aC558B20aAAE69Ec542BC3f0679F060"),
 		},
 	)
 	if (err != nil) {
@@ -256,7 +256,7 @@ func (api *UnixfsAPI) Get(ctx context.Context, p path.Path) (files.Node, error) 
 
 	access, err := instance.CheckAccessMultiple(
 		&bind.CallOpts{},
-		common.HexToAddress("0xf225e7BEAe7c29582B99b330FEff1C68dcb35DC1"),
+		common.HexToAddress("0x6a8322B08c1926f3cDC988CF9550c11C4c2bCF35"),
 		[][32]byte{block_1, block_2},
 	)
 	if ((err != nil) || (access[0] != true) || (access[1] != true)) {
